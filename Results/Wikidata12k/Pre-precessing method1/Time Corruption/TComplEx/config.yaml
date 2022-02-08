@@ -1,0 +1,237 @@
+1vsAll: {class_name: TrainingJob1vsAll}
+KvsAll:
+  class_name: TrainingJobKvsAll
+  label_smoothing: 0.0
+  query_types: {_po: true, _poadd: false, s_o: false, s_oadd: false, sp_: true, sp_add: false}
+ax_search:
+  class_name: AxSearchJob
+  num_sobol_trials: 30
+  num_trials: 30
+  parameter_constraints: []
+  parameters:
+  - {name: model, type: fixed, value: reciprocal_relations_model}
+  - is_ordered: true
+    name: train.batch_size
+    type: choice
+    values: [128, 256, 512, 1024]
+  - {name: train.type, type: fixed, value: 1vsAll}
+  - name: train.optimizer
+    type: choice
+    values: [Adam, Adagrad]
+  - {name: train.loss, type: fixed, value: kl}
+  - bounds: [0.0003, 1.0]
+    log_scale: true
+    name: train.optimizer_args.lr
+    type: range
+  - {name: train.lr_scheduler, type: fixed, value: ReduceLROnPlateau}
+  - {name: train.lr_scheduler_args.mode, type: fixed, value: max}
+  - {name: train.lr_scheduler_args.factor, type: fixed, value: 0.95}
+  - {name: train.lr_scheduler_args.threshold, type: fixed, value: 0.0001}
+  - bounds: [0, 10]
+    name: train.lr_scheduler_args.patience
+    type: range
+  - is_ordered: true
+    name: lookup_embedder.dim
+    type: choice
+    values: [128, 256, 512]
+  - name: lookup_embedder.initialize
+    type: choice
+    values: [xavier_normal_, xavier_uniform_, normal_, uniform_]
+  - {name: lookup_embedder.initialize_args.normal_.mean, type: fixed, value: 0.0}
+  - bounds: [1.0e-05, 1.0]
+    log_scale: true
+    name: lookup_embedder.initialize_args.normal_.std
+    type: range
+  - bounds: [-1.0, -1.0e-05]
+    name: lookup_embedder.initialize_args.uniform_.a
+    type: range
+  - {name: lookup_embedder.initialize_args.xavier_uniform_.gain, type: fixed, value: 1.0}
+  - {name: lookup_embedder.initialize_args.xavier_normal_.gain, type: fixed, value: 1.0}
+  - is_ordered: true
+    name: lookup_embedder.regularize
+    type: choice
+    values: ['', l3, l2, l1]
+  - name: lookup_embedder.regularize_args.weighted
+    type: choice
+    values: [true, false]
+  - bounds: [1.0e-20, 0.1]
+    log_scale: true
+    name: tcomplex.entity_embedder.regularize_weight
+    type: range
+  - bounds: [1.0e-20, 0.1]
+    log_scale: true
+    name: tcomplex.relation_embedder.regularize_weight
+    type: range
+  - bounds: [1.0e-20, 0.1]
+    log_scale: true
+    name: tcomplex.timestamp_embedder.regularize_weight
+    type: range
+  - bounds: [-0.5, 0.5]
+    name: tcomplex.entity_embedder.dropout
+    type: range
+  - bounds: [-0.5, 0.5]
+    name: tcomplex.relation_embedder.dropout
+    type: range
+  - bounds: [-0.5, 0.5]
+    name: tcomplex.timestamp_embedder.dropout
+    type: range
+  sobol_seed: 0
+console:
+  format: {}
+  quiet: false
+conve:
+  2D_aspect_ratio: 2
+  class_name: ConvE
+  convolution_bias: true
+  entity_embedder: {+++: +++, dropout: 0.2, type: lookup_embedder}
+  feature_map_dropout: 0.2
+  filter_size: 3
+  padding: 0
+  projection_dropout: 0.3
+  relation_embedder: {+++: +++, dropout: 0.2, type: lookup_embedder}
+  round_dim: false
+  stride: 1
+dataset:
+  +++: +++
+  add_data_names: [timestamp, key_id, key_n]
+  aggr_key_cols: [key_id, key_n]
+  files:
+    +++: +++
+    entity_ids: {filename: entity_ids.del, type: map}
+    entity_strings: {filename: entity_ids.del, type: map}
+    key_id_ids: {filename: key_id_ids.del, type: map}
+    key_id_strings: {filename: key_id_ids.del, type: map}
+    key_n_ids: {filename: key_n_ids.del, type: map}
+    key_n_strings: {filename: key_n_ids.del, type: map}
+    relation_ids: {filename: relation_ids.del, type: map}
+    relation_strings: {filename: relation_ids.del, type: map}
+    test: {filename: test.del, size: 21551, split_type: test, type: triples}
+    test_without_unseen: {filename: test_without_unseen.del, size: 21532, split_type: test,
+      type: triples}
+    timestamp_ids: {filename: timestamp_ids.del, type: map}
+    timestamp_strings: {filename: timestamp_ids.del, type: map}
+    train: {filename: train.del, size: 272364, split_type: train, type: triples}
+    train_sample: {filename: train_sample.del, size: 22696, split_type: train, type: triples}
+    valid: {filename: valid.del, size: 22696, split_type: valid, type: triples}
+    valid_without_unseen: {filename: valid_without_unseen.del, size: 22685, split_type: valid,
+      type: triples}
+  name: wikidata12k-m1
+  num_add_data: {key_id: 27770, key_n: 99, timestamp: 81}
+  num_entities: 12554
+  num_relations: 24
+  pickle: true
+entity_ranking:
+  add_data_prediction: false
+  chunk_size: -1
+  class_name: EntityRankingJob
+  filter_splits: [train, valid]
+  filter_with_add_data: true
+  filter_with_test: true
+  hits_at_k_s: [1, 3, 10, 50, 100, 200, 300, 400, 500, 1000]
+  metrics_per: {argument_frequency: false, head_and_tail: false, relation_type: true}
+  tie_handling: {atol: 1e-05, rtol: 1e-04, type: rounded_mean_rank}
+eval: {batch_size: 300, num_workers: 0, pin_memory: false, split: valid, trace_level: epoch,
+  type: entity_ranking}
+grid_search:
+  class_name: GridSearchJob
+  parameters: {+++: +++}
+  run: true
+import: [tcomplex, reciprocal_relations_model]
+job: {device: cuda, type: train}
+lookup_embedder:
+  class_name: LookupEmbedder
+  dim: 512
+  dropout: 0.0
+  initialize: normal_
+  initialize_args:
+    +++: +++
+    normal_: {mean: 0.0, std: 0.0005078323732019744}
+    uniform_: {a: -0.29364808413366783}
+    xavier_normal_: {gain: 1.0}
+    xavier_uniform_: {gain: 1.0}
+  normalize: {p: -1.0}
+  pretrain: {ensure_all: false, model_filename: ''}
+  regularize: lp
+  regularize_args: {+++: +++, p: 3, weighted: false}
+  regularize_weight: 0.0
+  round_dim_to: []
+  sparse: false
+manual_search:
+  class_name: ManualSearchJob
+  configurations: []
+  run: true
+model: reciprocal_relations_model
+modules: [kge.model.embedder, kge.model, kge.job]
+negative_sampling:
+  class_name: TrainingJobNegativeSampling
+  filtering: {a: false, implementation: fast_if_available, o: false, p: false, s: false,
+    split: ''}
+  frequency: {smoothing: 1}
+  implementation: triple
+  num_samples: {a: 0, o: -1, p: 0, s: 3}
+  sampling_type: uniform
+  shared: false
+  shared_type: default
+  with_replacement: true
+random_seed: {default: -1, numba: -1, numpy: -1, python: -1, torch: -1}
+reciprocal_relations_model:
+  base_model: {+++: +++, type: tcomplex}
+  class_name: ReciprocalRelationsModel
+search:
+  device_pool: []
+  num_workers: 1
+  on_error: abort
+  type: ax_search
+tcomplex:
+  class_name: TComplEx
+  entity_embedder: {+++: +++, dropout: 0.24633797258138657, regularize_weight: 1.1154905998241318e-05,
+    type: lookup_embedder}
+  relation_embedder: {+++: +++, dropout: 0.1575942523777485, regularize_weight: 2.0544908573824474e-20,
+    type: lookup_embedder}
+  timestamp_embedder: {+++: +++, dropout: -0.41631197463721037, regularize_weight: 3.424012202221449e-20,
+    type: lookup_embedder}
+time_interval_prediction:
+  class_name: TimeIntervalPredictionJob
+  iou_k_s: [1, 3, 10]
+  iou_type: aeiou
+train:
+  abort_on_nan: true
+  auto_correct: true
+  batch_size: 1024
+  checkpoint: {every: 5, keep: 3, keep_init: true}
+  combined_with_strings: []
+  corruption: {add_data: true, entity: false}
+  loss: kl
+  loss_arg: .nan
+  lr_scheduler: ReduceLROnPlateau
+  lr_scheduler_args: {+++: +++, factor: 0.95, mode: max, patience: 0, threshold: 0.0001}
+  lr_warmup: 0
+  max_epochs: 50
+  num_workers: 0
+  optimizer:
+    +++: +++
+    default:
+      args: {+++: +++, lr: 0.012212070738788716}
+      type: Adagrad
+  pin_memory: false
+  split: train
+  subbatch_auto_tune: true
+  subbatch_size: -1
+  trace_level: epoch
+  type: 1vsAll
+  use_add_data_embeddings: [timestamp]
+  use_add_data_filters: []
+  use_add_data_strings: []
+  visualize_graph: false
+training_loss: {class_name: TrainingLossEvaluationJob}
+user: {+++: +++}
+valid:
+  early_stopping:
+    patience: 10
+    threshold: {epochs: 50, metric_value: 0.05}
+  every: 5
+  metric: mean_reciprocal_rank_filtered_with_test_add_data
+  metric_expr: float("nan")
+  metric_max: true
+  split: valid
+  trace_level: epoch
